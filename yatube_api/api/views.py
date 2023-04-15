@@ -1,8 +1,10 @@
-from rest_framework import viewsets, permissions
+from rest_framework import viewsets, permissions, filters
+from rest_framework.pagination import LimitOffsetPagination
 from django.shortcuts import get_object_or_404
 
-from posts.models import Post, Group, Comment, Follow, User
-from .serializers import PostSerializer, GroupSerializer, CommentSerializer, FollowSerializer
+from posts.models import Post, Group
+from .serializers import (PostSerializer, GroupSerializer,
+                          CommentSerializer, FollowSerializer)
 from .permissions import AuthorOrReadOnly
 
 
@@ -10,6 +12,7 @@ class PostViewSet(viewsets.ModelViewSet):
     queryset = Post.objects.all()
     serializer_class = PostSerializer
     permission_classes = (AuthorOrReadOnly,)
+    pagination_class = LimitOffsetPagination
 
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)
@@ -31,22 +34,21 @@ class CommentViewSet(viewsets.ModelViewSet):
         )
 
 
-class GroupViewSet(viewsets.ModelViewSet):
+class GroupViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Group.objects.all()
     serializer_class = GroupSerializer
-    permission_classes = (AuthorOrReadOnly,)
 
 
 class FollowViewSet(viewsets.ModelViewSet):
     serializer_class = FollowSerializer
     permission_classes = (permissions.IsAuthenticated,)
+    filter_backends = (filters.SearchFilter,)
+    search_fields = ('user__username',)
 
     def get_queryset(self):
-        user = self.request.user
-        following = user.following.all()
-        return following
+        return self.request.user.follower.all()
 
     def perform_create(self, serializer):
         serializer.save(
-            user=self.request.user
+            user=self.request.user,
         )
